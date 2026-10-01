@@ -87,6 +87,7 @@ class CrashReport(BaseModel):
     payload: dict | None = None
     framework: str = "fastapi"
     source_file_rel: str = Field("", max_length=500)
+    source_root: str = Field("", max_length=500)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────
@@ -343,7 +344,7 @@ def api_tenants(request: Request):
     s = _current_session(request)
     if not s:
         raise HTTPException(401, "not signed in")
-    return [{k: t[k] for k in ("tid", "repo", "secret", "created")}
+    return [{k: t[k] for k in ("tid", "repo", "secret", "prefix", "created")}
             for t in auth.tenants_of(s["login"])]
 
 
@@ -356,8 +357,8 @@ async def api_create_tenant(request: Request):
     repo = (body.get("repo") or "").strip()
     if not repo or "/" not in repo:
         raise HTTPException(400, "repo must be owner/name")
-    t = auth.create_tenant(s["login"], s["token"], repo)
-    return {"tid": t["tid"], "secret": t["secret"], "repo": t["repo"]}
+    t = auth.create_tenant(s["login"], s["token"], repo, body.get("prefix") or "")
+    return {"tid": t["tid"], "secret": t["secret"], "repo": t["repo"], "prefix": t["prefix"]}
 
 
 @app.get("/status/last")
@@ -405,13 +406,21 @@ def run_pipeline(job_id: str, report: CrashReport, rel: str, tenant: dict | None
         log("reading_source")
         with _step(steps, "read_source"):
             if tenant:
+                # Tenant mode: the HMAC proves the report came from the
+                # tenant's own app — trust its source_root + package layout.
                 abs_file = _abs_source_from_trace(report.stack_trace)
                 if abs_file is None:
                     raise ValueError("no app source path in stack trace")
-                tree = _read_tree(abs_file.parent)
-                rel = abs_file.name
+                root = Path(report.source_root).resolve() if report.source_root else abs_file.parent
+                tree = _read_tree(root)
+                rel = (report.source_file_rel or abs_file.name).removeprefix("./").lstrip("/")
+                if rel not in tree:
+                    raise ValueError(f"source '{rel}' not under {root}: {list(tree.keys())[:8]}")
+                report.source_file_rel = rel
+                rel_for_pr = abs_file.name
             else:
                 tree = _read_tree()
+                rel_for_pr = rel
             src = tree.get(rel, "")
             if not src:
                 raise ValueError(f"source file '{rel}' not in tree: {list(tree.keys())}")
@@ -507,13 +516,14 @@ def run_pipeline(job_id: str, report: CrashReport, rel: str, tenant: dict | None
         log("opening_pr")
         with _step(steps, "github"):
             pr_url, commit_sha, branch = github_delivery.open_pull_request(
-                rel, fix_code, test_code, report, verified,
+                rel_for_pr, fix_code, test_code, report, verified,
                 red_output=red.output,
                 green_output=verify.output if verify else "",
                 job_id=job_id,
                 steps=steps,
                 token=tenant["token"] if tenant else None,
                 repo_name=tenant["repo"] if tenant else None,
+                prefix=tenant.get("prefix") if tenant else None,
             )
         job["commit_sha"] = commit_sha
         job["branch"] = branch

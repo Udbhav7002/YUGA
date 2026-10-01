@@ -69,7 +69,10 @@
   <div class="box">
     <h3>CONNECT AN APP</h3>
     <p>Pick one of your GitHub repositories. CodeGhost generates a tenant id + shared secret — set them in the app that should be protected. Every crash it reports opens a PR on this repo with your token.</p>
-    <div class="row">
+    <div class="row" style="margin-top:10px">
+      <input id="prefixIn" placeholder="path inside repo (optional — e.g. target_app)"/>
+    </div>
+    <div class="row" style="margin-top:10px">
       <select id="repoSel"><option>loading your repositories…</option></select>
       <button onclick="connect()">CONNECT →</button>
     </div>
@@ -118,7 +121,7 @@ async function connect() {
   if (!repo) return;
   const t = await (await fetch('/api/tenants', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ repo }),
+    body: JSON.stringify({ repo, prefix: document.getElementById('prefixIn').value }),
   })).json();
   document.getElementById('cred').style.display = '';
   document.getElementById('snippet').textContent =
@@ -129,7 +132,7 @@ async function connect() {
 async function loadTenants() {
   const ts = await (await fetch('/api/tenants')).json();
   document.getElementById('tenants').innerHTML = ts.length
-    ? ts.map(t => { myTids.add(t.tid); return `<div class="trow"><span class="tid">${t.tid}</span><span class="repo">${t.repo}</span><span class="when">${new Date(t.created * 1000).toLocaleString()}</span></div>`; }).join('')
+    ? ts.map(t => { myTids.add(t.tid); return `<div class="trow"><span class="tid">${t.tid}</span><span class="repo">${t.repo}${t.prefix ? ' · ' + t.prefix : ''}</span><span class="when">${new Date(t.created * 1000).toLocaleString()}</span></div>`; }).join('')
     : '<div class="empty">None yet — connect an app above.</div>';
 }
 

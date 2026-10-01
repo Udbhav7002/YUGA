@@ -122,15 +122,19 @@ def drop_session(sid: str | None) -> None:
     SESSIONS.pop(sid, None)
 
 
-def create_tenant(login: str, token: str, repo: str) -> dict:
+def create_tenant(login: str, token: str, repo: str, prefix: str = "") -> dict:
     tid = secrets.token_hex(6)
     secret = secrets.token_hex(24)
+    prefix = prefix.strip().strip("/")
+    if prefix:
+        prefix += "/"
     with _lock:
         TENANTS[tid] = {
             "tid": tid,
             "login": login,
             "token": token,
             "repo": repo,
+            "prefix": prefix,
             "secret": secret,
             "created": time.time(),
         }

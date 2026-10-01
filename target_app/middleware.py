@@ -53,6 +53,7 @@ def install_crash_interceptor(app):
             "route": request.url.path,
             "payload": body,
             "framework": "fastapi",
+            "source_root": os.getcwd(),
             "source_file_rel": _extract_source_file(tb),
         }
 

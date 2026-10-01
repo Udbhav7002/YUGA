@@ -67,6 +67,29 @@ human to merge.
   to fake success.
 - **Human in the loop.** Verified or not, merging is one click — a person's.
 
+## Sign in & connect your app
+
+CodeGhost is multi-tenant. At `/login`, sign in with GitHub (OAuth) — or with
+the server's offline identity — then open the **App Console** at `/apps`:
+
+1. Pick one of your repositories (and, if the app lives in a subfolder, the
+   path inside the repo).
+2. CodeGhost issues a **tenant id + shared secret**. Drop them into the app
+   you want protected:
+
+   ```
+   CODEGHOST_URL=http://<host>:8002/crash?t=<tenant id>
+   CODEGHOST_SHARED_SECRET=<tenant secret>
+   ```
+
+3. From that moment, crashes reported by *your* app are HMAC-verified against
+   *your* secret, the source is located from the report itself, and verified
+   fixes open pull requests on *your* repository with *your* token.
+
+Per-tenant secrets mean one compromised app never exposes another. Tokens
+stay server-side. And the boundary holds for every tenant: **the agent never
+merges — the last click is always a human's.**
+
 ## Repository layout
 
 ```

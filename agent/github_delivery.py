@@ -68,12 +68,13 @@ def open_pull_request(
     steps: dict | None = None,
     token: str | None = None,
     repo_name: str | None = None,
+    prefix: str | None = None,
 ):
     """Commit one fix (+ regression test) onto the single rolling branch and
     append its evidence section to the rolling PR.
 
-    token/repo_name: per-tenant delivery (OAuth user's identity). Defaults
-    to the server's .env identity when omitted.
+    token/repo_name/prefix: per-tenant delivery (OAuth user's identity).
+    Defaults to the server's .env identity when omitted.
 
     Returns:
         (pr_html_url, commit_sha, branch)
@@ -82,6 +83,7 @@ def open_pull_request(
         g = Github(token or os.environ["GITHUB_TOKEN"], timeout=15)
         repo = g.get_repo(repo_name or os.environ["GITHUB_REPO"])
         base = repo.default_branch
+        gh_prefix = prefix if prefix is not None else PREFIX
 
         # ── 1. Single rolling branch: create once, reuse forever ──
         try:
@@ -93,7 +95,7 @@ def open_pull_request(
 
         # ── 2. Commit the fix — message maps it to the crash ──
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        gh_path = PREFIX + rel_path
+        gh_path = gh_prefix + rel_path
         msg = (f"fix(codeghost): {job_id} — {report.exception_type} in {rel_path} "
                f"({report.method} {report.route})")
         try:
