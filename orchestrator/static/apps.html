@@ -77,8 +77,12 @@
       <button onclick="connect()">CONNECT →</button>
     </div>
     <div id="cred" style="display:none">
-      <p style="margin-top:14px;color:var(--ink)">Tenant registered. Set these two variables in your application:</p>
+      <p style="margin-top:14px;color:var(--ink)">Tenant registered. Set these two variables in your application — the secret is masked; reveal or copy it when configuring:</p>
       <pre id="snippet"></pre>
+      <div class="row" style="margin-top:8px">
+        <button class="ghost" id="revealBtn" onclick="renderSnippet(!reveal)">REVEAL</button>
+        <button class="ghost" onclick="navigator.clipboard.writeText(snippetText(true)); this.textContent='COPIED ✓'; setTimeout(()=>this.textContent='COPY SNIPPET',1500)">COPY SNIPPET</button>
+      </div>
     </div>
   </div>
 
@@ -95,6 +99,7 @@
   <footer>CODEGHOST · AGENT WRITES — HUMAN SHIPS</footer>
 </div>
 <script>
+let lastTenant = null;
 const myTids = new Set();
 
 fetch('/api/me').then(r => {
@@ -123,10 +128,22 @@ async function connect() {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ repo, prefix: document.getElementById('prefixIn').value }),
   })).json();
+  lastTenant = t;
   document.getElementById('cred').style.display = '';
-  document.getElementById('snippet').textContent =
-    `CODEGHOST_URL=${location.origin}/crash?t=${t.tid}\nCODEGHOST_SHARED_SECRET=${t.secret}`;
+  renderSnippet(false);
   loadTenants();
+}
+
+function snippetText(revealed) {
+  const secret = revealed && lastTenant ? lastTenant.secret : (lastTenant ? lastTenant.secret.replace(/^(.{6}).*(.{4})$/, '$1…$2') : '…');
+  return `CODEGHOST_URL=${location.origin}/crash?t=${lastTenant.tid}\nCODEGHOST_SHARED_SECRET=${secret}`;
+}
+
+let reveal = false;
+function renderSnippet(show) {
+  reveal = show;
+  document.getElementById('snippet').textContent = snippetText(show);
+  document.getElementById('revealBtn').textContent = show ? 'HIDE' : 'REVEAL';
 }
 
 async function loadTenants() {

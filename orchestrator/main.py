@@ -249,20 +249,38 @@ async def crash(request: Request, background: BackgroundTasks):
 
 
 # ── Auth & console ──────────────────────────────────────────────────
+CONSOLE_PORT = 8002  # auth + tenant state live on this instance
+
+
+def _console_guard(request: Request, path: str):
+    """Sessions are per-process — send console traffic to the instance
+    that owns them instead of 401-ing on the wrong port."""
+    port = request.scope.get("server", (None, None))[1]
+    if port and port != CONSOLE_PORT:
+        return RedirectResponse(f"http://{request.url.hostname}:{CONSOLE_PORT}{path}", 302)
+    return None
+
+
 def _current_session(request: Request) -> dict | None:
     return auth.get_session(request.cookies.get("cg_session"))
 
 
 @app.get("/login", response_class=HTMLResponse)
 @app.get("/login/", response_class=HTMLResponse)
-def serve_login():
+def serve_login(request: Request):
+    r = _console_guard(request, "/login")
+    if r:
+        return r
     f = Path(__file__).parent / "static" / "login.html"
     return f.read_text() if f.exists() else "login page missing"
 
 
 @app.get("/apps", response_class=HTMLResponse)
 @app.get("/apps/", response_class=HTMLResponse)
-def serve_apps():
+def serve_apps(request: Request):
+    r = _console_guard(request, "/apps")
+    if r:
+        return r
     f = Path(__file__).parent / "static" / "apps.html"
     return f.read_text() if f.exists() else "apps page missing"
 
@@ -339,13 +357,25 @@ def api_my_repos(request: Request):
     return [{"full_name": r["full_name"], "private": r["private"]} for r in repos]
 
 
+def _mask(secret: str) -> str:
+    return f"{secret[:6]}…{secret[-4:]}" if len(secret) > 12 else "…"
+
+
 @app.get("/api/tenants")
 def api_tenants(request: Request):
     s = _current_session(request)
     if not s:
         raise HTTPException(401, "not signed in")
-    return [{k: t[k] for k in ("tid", "repo", "secret", "prefix", "created")}
-            for t in auth.tenants_of(s["login"])]
+    out = []
+    for t in auth.tenants_of(s["login"]):
+        out.append({
+            "tid": t.get("tid", ""),
+            "repo": t.get("repo", ""),
+            "prefix": t.get("prefix", ""),
+            "created": t.get("created", 0),
+            "secret_masked": _mask(t.get("secret", "")),
+        })
+    return out
 
 
 @app.post("/api/tenants")
@@ -358,7 +388,7 @@ async def api_create_tenant(request: Request):
     if not repo or "/" not in repo:
         raise HTTPException(400, "repo must be owner/name")
     t = auth.create_tenant(s["login"], s["token"], repo, body.get("prefix") or "")
-    return {"tid": t["tid"], "secret": t["secret"], "repo": t["repo"], "prefix": t["prefix"]}
+    return {"tid": t["tid"], "secret": t["secret"], "repo": t["repo"], "prefix": t.get("prefix", "")}
 
 
 @app.get("/status/last")

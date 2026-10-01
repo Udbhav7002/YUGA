@@ -123,12 +123,16 @@ def drop_session(sid: str | None) -> None:
 
 
 def create_tenant(login: str, token: str, repo: str, prefix: str = "") -> dict:
-    tid = secrets.token_hex(6)
-    secret = secrets.token_hex(24)
     prefix = prefix.strip().strip("/")
     if prefix:
         prefix += "/"
     with _lock:
+        _reload_if_changed()
+        for t in TENANTS.values():  # idempotent connect — reuse, don't pile up
+            if t.get("login") == login and t.get("repo") == repo and t.get("prefix", "") == prefix:
+                return t
+        tid = secrets.token_hex(6)
+        secret = secrets.token_hex(24)
         TENANTS[tid] = {
             "tid": tid,
             "login": login,
@@ -143,11 +147,31 @@ def create_tenant(login: str, token: str, repo: str, prefix: str = "") -> dict:
 
 
 def tenants_of(login: str) -> list[dict]:
+    _reload_if_changed()
     return [t for t in TENANTS.values() if t.get("login") == login]
 
 
 def get_tenant(tid: str | None) -> dict | None:
-    return TENANTS.get(tid) if tid else None
+    if not tid:
+        return None
+    _reload_if_changed()
+    return TENANTS.get(tid)
+
+
+_tenants_mtime = 0.0
+
+
+def _reload_if_changed() -> None:
+    """Other orchestrator instances may register tenants after this process
+    started — pick them up by watching the file's mtime."""
+    global TENANTS, _tenants_mtime
+    try:
+        mtime = TENANTS_FILE.stat().st_mtime
+    except OSError:
+        return
+    if mtime != _tenants_mtime:
+        _load_tenants()
+        _tenants_mtime = mtime
 
 
 def dev_login() -> dict | None:
