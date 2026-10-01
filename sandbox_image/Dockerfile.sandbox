@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# uv = 10x faster pip. Worth the 30 seconds to add.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+RUN uv pip install --system \
+    pytest==8.3.* httpx==0.27.* fastapi==0.115.* uvicorn==0.32.*
+
+# Drop privileges for security
+RUN useradd -m -u 1000 appuser
+USER appuser
+
+WORKDIR /workspace

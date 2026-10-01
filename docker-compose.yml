@@ -1,0 +1,30 @@
+services:
+  target-app:
+    build: ./target_app
+    ports: ["8000:8000"]
+    environment:
+      CODEGHOST_URL: http://orchestrator:9000/crash
+      CODEGHOST_SHARED_SECRET: ${CODEGHOST_SHARED_SECRET:-codeghost-secret-2026}
+    networks: [cgn]
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports: ["9000:9000"]
+    environment:
+      CODEGHOST_SHARED_SECRET: ${CODEGHOST_SHARED_SECRET:-codeghost-secret-2026}
+      TARGET_SOURCE_DIR: /app/target-src
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_REPO: ${GITHUB_REPO}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./target_app:/app/target-src:ro
+    networks: [cgn]
+    restart: unless-stopped
+
+networks:
+  cgn:
+    driver: bridge

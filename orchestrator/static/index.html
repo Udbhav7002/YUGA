@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>CodeGhost — Operations</title>
+<style>
+  :root {
+    --bg: #0e1013; --panel: #15181d; --panel2: #191d23; --line: #232830;
+    --txt: #ccd2da; --dim: #7a828c; --faint: #4a515b;
+    --accent: #5b8def; --ok: #42926b; --warn: #b98a2e; --bad: #c0564f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    background: var(--bg); color: var(--txt); padding: 48px 24px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; justify-content: space-between;
+    border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 8px; }
+  .brand { font-size: 15px; font-weight: 600; letter-spacing: 3px; color: var(--txt); }
+  .brand small { display: block; font-size: 11px; font-weight: 400; letter-spacing: .4px;
+    color: var(--faint); margin-top: 3px; text-transform: none; }
+  .env { font-size: 11.5px; color: var(--dim); text-align: right; }
+  .env b { color: var(--txt); font-weight: 500; }
+  .controls { display: flex; align-items: center; gap: 12px; margin: 22px 0 26px; }
+  button.run {
+    font: inherit; font-size: 13px; font-weight: 500; color: var(--txt);
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 9px 18px; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  button.run:hover:not(:disabled) { border-color: var(--bad); background: #1d1516; color: #e8b0ab; }
+  button.run:disabled { opacity: .45; cursor: wait; }
+  .live { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--dim); }
+  .live b { color: var(--accent); font-weight: 500; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  tr { border-bottom: 1px solid var(--line); transition: background .2s; }
+  tr:last-child { border-bottom: none; }
+  td { padding: 11px 16px; vertical-align: middle; }
+  td.stage { width: 260px; display: flex; align-items: center; gap: 10px; }
+  .mark { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--faint);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10px; color: var(--bg); flex-shrink: 0; transition: all .2s; }
+  td.stage span.lbl { font-weight: 500; color: var(--dim); font-size: 13.5px; }
+  td.desc { color: var(--faint); font-size: 12.5px; }
+  td.dur { width: 80px; text-align: right; font-variant-numeric: tabular-nums;
+    color: var(--faint); font-size: 12.5px; }
+  tr.done .mark { background: var(--ok); border-color: var(--ok); }
+  tr.done .lbl { color: var(--txt); }
+  tr.done .dur { color: var(--ok); }
+  tr.active { background: #151b26; }
+  tr.active .mark { border-color: var(--accent); animation: blink 1.1s ease-in-out infinite; }
+  tr.active .lbl { color: var(--accent); }
+  tr.active .dur { color: var(--accent); }
+  @keyframes blink { 0%,100% { background: transparent; } 50% { background: var(--accent); } }
+  .summary { display: none; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+  .summary.show { display: grid; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; }
+  .card .k { font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--faint); margin-bottom: 4px; }
+  .card .v { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
+  .pill i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .pill.ok { color: var(--ok); } .pill.ok i { background: var(--ok); }
+  .pill.warn { color: var(--warn); } .pill.warn i { background: var(--warn); }
+  .pill.bad { color: var(--bad); } .pill.bad i { background: var(--bad); }
+  .verdict { display: none; margin-top: 16px; padding: 14px 18px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); font-size: 13px; }
+  .verdict.show { display: block; }
+  .verdict .headline { font-weight: 600; margin-bottom: 4px; }
+  .verdict.ok .headline { color: var(--ok); } .verdict.warn .headline { color: var(--warn); }
+  .verdict.bad .headline { color: var(--bad); }
+  .verdict .note { color: var(--dim); font-size: 12.5px; }
+  .pr { display: none; margin-top: 14px; text-align: center; }
+  .pr a { display: inline-block; font-size: 13px; font-weight: 500; color: var(--txt);
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 22px; text-decoration: none; transition: border-color .15s; }
+  .pr a:hover { border-color: var(--accent); }
+  .pr.show { display: block; }
+  .hint { color: var(--faint); font-size: 12px; text-align: center; min-height: 18px; margin-top: 10px; }
+  section.jobs { margin-top: 40px; }
+  section.jobs h2 { font-size: 10.5px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--faint); font-weight: 600; margin-bottom: 10px; }
+  .jrow { display: flex; gap: 16px; align-items: center; padding: 9px 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    margin-bottom: 6px; font-size: 12.5px; }
+  .jrow .jid { font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--faint); }
+  .jrow .route { flex: 1; color: var(--txt); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  .jrow a { color: var(--accent); text-decoration: none; }
+</style>
+<body><div class="wrap">
+  <header>
+    <div class="brand">CODEGHOST<small>autonomous crash-to-fix pipeline</small></div>
+    <div class="env">target <b id="envTarget">—</b><br>repo <b>github.com/Udbhav7002</b></div>
+  </header>
+
+  <div class="controls">
+    <button class="run" id="triggerBtn" onclick="triggerCrash()">Run demo — trigger crash</button>
+    <div class="live" id="timer"></div>
+  </div>
+
+  <table id="pipeline"></table>
+
+  <div class="summary" id="summary">
+    <div class="card"><div class="k">Total time</div><div class="v" id="mTotal">—</div></div>
+    <div class="card"><div class="k">Verification</div><div class="v" id="mVerified">—</div></div>
+    <div class="card"><div class="k">Fix attempts</div><div class="v" id="mRetries">—</div></div>
+  </div>
+
+  <div class="verdict" id="verdict"></div>
+  <div class="pr" id="prLink"></div>
+  <p class="hint" id="hint"></p>
+
+  <section class="jobs">
+    <h2>Job history</h2>
+    <div id="jobList"></div>
+  </section>
+</div>
+
+<script>
+const TARGET_APP = (() => {
+  const portMap = { '8002': '8001', '8004': '8003', '9000': '8000' };
+  return `http://${location.hostname}:${portMap[location.port] || '8001'}`;
+})();
+document.getElementById('envTarget').textContent = `${location.hostname}:${(TARGET_APP.split(':'))[2]}`;
+
+const ROWS = [
+  { stage: 'received',             name: 'Crash intercepted',   desc: 'middleware caught the 500 · HMAC-signed report', keys: [] },
+  { stage: 'reading_source',       name: 'Reading source',      desc: 'repository loaded into memory',                  keys: ['read_source'] },
+  { stage: 'generating_test',      name: 'Generating test',     desc: 'LLM writes a reproduction test',                 keys: ['llm_test'] },
+  { stage: 'running_failing_test', name: 'Sandbox — red run',   desc: 'crash must reproduce in isolation',              keys: ['sandbox_red'] },
+  { stage: 'generating_fix',       name: 'Generating fix',      desc: 'LLM patches the file · blocklist scanned',       keys: ['llm_fix'] },
+  { stage: 'verifying_fix',        name: 'Sandbox — green run', desc: 'same test must pass with the fix',               keys: ['sandbox_green'] },
+  { stage: 'opening_pr',           name: 'Opening pull request',desc: 'fix + regression test committed',                keys: ['github'] },
+];
+
+let lastJob = null, t0 = null, triggerAt = null, timerHandle = null;
+
+function secs(job, keys) {
+  return keys.map(k => Object.keys(job.steps || {}).filter(s => s.startsWith(k))
+    .reduce((a, s) => a + job.steps[s], 0)).reduce((a, b) => a + b, 0);
+}
+
+function render(job) {
+  const cur = ROWS.findIndex(r => r.stage === job.stage);
+  document.getElementById('pipeline').innerHTML = ROWS.map((r, i) => {
+    const t = secs(job, r.keys);
+    let cls = '', mark = '';
+    if (job.final) { if (t > 0) { cls = 'done'; mark = '✓'; } }
+    else if ((t > 0 && i < cur) || cur > i) { cls = 'done'; mark = '✓'; }
+    else if (i === cur) { cls = 'active'; }
+    let desc = r.desc;
+    if (r.stage === 'generating_fix' && Object.keys(job.steps || {}).filter(s => s.startsWith('llm_fix')).length > 1)
+      desc = `attempt ${Object.keys(job.steps).filter(s => s.startsWith('llm_fix')).length} · sandbox feedback loop`;
+    return `<tr class="${cls}"><td class="stage"><span class="mark">${mark}</span><span class="lbl">${r.name}</span></td><td class="desc">${desc}</td><td class="dur">${t > 0 ? t.toFixed(1) + 's' : (cls === 'active' ? '···' : '—')}</td></tr>`;
+  }).join('');
+}
+
+function finish(job) {
+  clearInterval(timerHandle);
+  render(job);
+  const s = document.getElementById('summary'), v = document.getElementById('verdict'), pr = document.getElementById('prLink');
+  s.classList.add('show');
+  document.getElementById('mTotal').textContent = job.elapsed ? job.elapsed + 's' : '—';
+  document.getElementById('mRetries').textContent = job.retries ?? 0;
+  const mv = document.getElementById('mVerified');
+  v.classList.add('show');
+  v.className = 'verdict show';
+  pr.className = 'pr';
+  if (job.status === 'fixed') {
+    mv.innerHTML = '<span class="pill ok"><i></i>verified</span>';
+    v.classList.add('ok');
+    v.innerHTML = '<div class="headline">Fix verified in sandbox — regression test failed before, passed after.</div><div class="note">The PR contains both runs raw. Merge is one click; a human approves.</div>';
+    if (job.pr_url) { pr.classList.add('show'); pr.innerHTML = `<a href="${job.pr_url}" target="_blank">View pull request →</a>`; }
+  } else if (job.status === 'draft_pr') {
+    mv.innerHTML = '<span class="pill warn"><i></i>unverified</span>';
+    v.classList.add('warn');
+    v.innerHTML = '<div class="headline">Opened as draft — the fix did not pass verification.</div><div class="note">CodeGhost refuses to claim success it cannot prove. A human reviews.</div>';
+    if (job.pr_url) { pr.classList.add('show'); pr.innerHTML = `<a href="${job.pr_url}" target="_blank">View draft pull request →</a>`; }
+  } else {
+    mv.innerHTML = '<span class="pill bad"><i></i>stopped</span>';
+    v.classList.add('bad');
+    v.innerHTML = `<div class="headline">${job.status === 'failed' ? 'Pipeline stopped — ' + (job.reason || 'crash not reproducible') : 'Error — ' + (job.error || 'unknown')}</div><div class="note">No unverified changes were pushed.</div>`;
+  }
+  document.getElementById('triggerBtn').disabled = false;
+  document.getElementById('triggerBtn').textContent = 'Run demo — trigger crash';
+  document.getElementById('timer').textContent = '';
+}
+
+function tick() {
+  fetch('/status/last').then(r => r.json()).then(job => {
+    if (!job.crash_id) return;
+    if (job.job_id !== lastJob) {
+      lastJob = job.job_id; t0 = Date.now();
+      ['summary', 'verdict', 'prLink'].forEach(id => document.getElementById(id).classList.remove('show'));
+      document.getElementById('hint').textContent = '';
+    }
+    const final = ['fixed', 'draft_pr', 'failed', 'error'].includes(job.status);
+    job.final = final;
+    if (final) finish(job);
+    else {
+      render(job);
+      if (t0) document.getElementById('timer').innerHTML = `elapsed <b>${((Date.now() - t0) / 1000).toFixed(1)}s</b>`;
+      if (triggerAt && Date.now() - triggerAt > 10000 && job.stage === 'received')
+        document.getElementById('hint').textContent = 'No new job — the same crash inside 5 minutes is deduplicated (cooldown). Restart the orchestrator or present the other bug.';
+    }
+  }).catch(() => {});
+}
+
+function triggerCrash() {
+  const btn = document.getElementById('triggerBtn');
+  btn.disabled = true; btn.textContent = 'Crashing target…';
+  triggerAt = Date.now();
+  fetch(`${TARGET_APP}/calculate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ a: 10, b: 0, operation: 'divide' }),
+  }).catch(() => {
+    document.getElementById('hint').textContent = `Target app unreachable at ${TARGET_APP}`;
+    btn.disabled = false; btn.textContent = 'Run demo — trigger crash';
+  });
+}
+
+async function tickJobs() {
+  try {
+    const jobs = (await (await fetch('/jobs')).json()).slice(-6).reverse();
+    document.getElementById('jobList').innerHTML = jobs.map(j =>
+      `<div class="jrow"><span class="jid">${j.job_id}</span><span class="route">${j.route || ''}</span>
+       <span class="pill ${j.status === 'fixed' ? 'ok' : j.status === 'draft_pr' ? 'warn' : 'bad'}"><i></i>${j.status}</span>
+       ${j.pr_url ? `<a href="${j.pr_url}" target="_blank">PR →</a>` : ''}</div>`).join('');
+  } catch (e) {}
+}
+
+/* yoga scenario: the trigger button posts the calculate crash; for the
+   occupancy bug the presenter curls /classes/laughter-yoga/occupancy —
+   the pipeline UI tracks whichever job lands last */
+if (location.port === '8004') {
+  window.triggerCrash = function () {
+    const btn = document.getElementById('triggerBtn');
+    btn.disabled = true; btn.textContent = 'Crashing target…';
+    triggerAt = Date.now();
+    fetch(`http://${location.hostname}:8003/rooms/huddle-0/occupancy`).catch(() => {
+      document.getElementById('hint').textContent = 'Target app unreachable on :8003';
+      btn.disabled = false; btn.textContent = 'Run demo — trigger crash';
+    });
+  };
+}
+
+setInterval(tick, 600);
+setInterval(tickJobs, 3000);
+tick(); tickJobs();
+</script>
+</body></html>
