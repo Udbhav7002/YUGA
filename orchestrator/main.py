@@ -345,13 +345,15 @@ def run_pipeline(job_id: str, report: CrashReport, rel: str):
         # ── Step 5: Open PR ─────────────────────────────────────
         log("opening_pr")
         with _step(steps, "github"):
-            pr_url = github_delivery.open_pull_request(
+            pr_url, commit_sha, branch = github_delivery.open_pull_request(
                 rel, fix_code, test_code, report, verified,
                 red_output=red.output,
                 green_output=verify.output if verify else "",
                 job_id=job_id,
                 steps=steps,
             )
+        job["commit_sha"] = commit_sha
+        job["branch"] = branch
 
         total = round(sum(steps.values()), 1)
         job.update(

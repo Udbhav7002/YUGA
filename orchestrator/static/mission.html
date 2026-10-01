@@ -152,7 +152,8 @@ function finish(job, srcName) {
   if (job.status === 'fixed') {
     mv.innerHTML = '<span class="pill ok"><i></i>verified</span>';
     b.classList.add('ok');
-    b.innerHTML = `<div class="headline">Fix verified in sandbox — ${srcName.toLowerCase()} regression test failed before, passed after.</div><div class="note">The PR contains both runs raw. Merge is one click; a human approves.</div>`;
+    b.innerHTML = `<div class="headline">Fix verified in sandbox — ${srcName.toLowerCase()} regression test failed before, passed after.</div><div class="note">The PR contains both runs raw. Merge is one click; a human approves.</div>`
+      + (job.commit_sha ? `<div class="note">commit <b>${job.commit_sha.slice(0, 7)}</b> on <b>${job.branch || 'codeghost/agent-fixes'}</b></div>` : '');
   } else if (job.status === 'draft_pr') {
     mv.innerHTML = '<span class="pill warn"><i></i>unverified</span>';
     b.classList.add('warn');
