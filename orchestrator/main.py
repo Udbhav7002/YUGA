@@ -312,7 +312,7 @@ async def auth_callback(request: Request):
         return RedirectResponse("/login?error=github_profile_failed", 302)
     sid = auth.create_session(user.get("login", "unknown"), token,
                               user.get("avatar_url", ""))
-    resp = RedirectResponse("/apps", 302)
+    resp = RedirectResponse("/mission", 302)
     resp.set_cookie("cg_session", sid, httponly=True, samesite="lax")
     return resp
 
@@ -323,7 +323,7 @@ def auth_dev():
     if not ident:
         return RedirectResponse("/login?error=server_identity_unavailable", 302)
     sid = auth.create_session(ident["login"], ident["token"], ident["avatar"])
-    resp = RedirectResponse("/apps", 302)
+    resp = RedirectResponse("/mission", 302)
     resp.set_cookie("cg_session", sid, httponly=True, samesite="lax")
     return resp
 
@@ -387,6 +387,10 @@ async def api_create_tenant(request: Request):
     repo = (body.get("repo") or "").strip()
     if not repo or "/" not in repo:
         raise HTTPException(400, "repo must be owner/name")
+    try:
+        auth.github_get(s["token"], f"/repos/{repo}")  # must exist & be visible to the user
+    except Exception:
+        raise HTTPException(400, f"repo not found on your account: {repo}")
     t = auth.create_tenant(s["login"], s["token"], repo, body.get("prefix") or "")
     return {"tid": t["tid"], "secret": t["secret"], "repo": t["repo"], "prefix": t.get("prefix", "")}
 
