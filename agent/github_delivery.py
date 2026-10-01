@@ -66,16 +66,21 @@ def open_pull_request(
     green_output: str = "",
     job_id: str = "",
     steps: dict | None = None,
+    token: str | None = None,
+    repo_name: str | None = None,
 ):
     """Commit one fix (+ regression test) onto the single rolling branch and
     append its evidence section to the rolling PR.
+
+    token/repo_name: per-tenant delivery (OAuth user's identity). Defaults
+    to the server's .env identity when omitted.
 
     Returns:
         (pr_html_url, commit_sha, branch)
     """
     with _lock:  # serialize concurrent fixes onto the shared branch
-        g = Github(os.environ["GITHUB_TOKEN"], timeout=15)
-        repo = g.get_repo(os.environ["GITHUB_REPO"])
+        g = Github(token or os.environ["GITHUB_TOKEN"], timeout=15)
+        repo = g.get_repo(repo_name or os.environ["GITHUB_REPO"])
         base = repo.default_branch
 
         # ── 1. Single rolling branch: create once, reuse forever ──

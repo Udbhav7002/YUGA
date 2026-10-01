@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>CodeGhost — App Console</title>
+<style>
+  :root {
+    --bg: #f5f2ea; --ink: #16150f; --muted: #6f6a5e; --faint: #9a9484;
+    --hair: #dcd7c9; --dash: #b8b19e; --red: #c92a2a; --paper: #fbfaf6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font: 13px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--bg); color: var(--ink); padding: 40px 24px 80px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  .eyebrow { font-size: 11px; letter-spacing: 2px; color: var(--red); font-weight: 600; }
+  .eyebrow::before { content: '● '; font-size: 9px; vertical-align: 1px; }
+  .headrow { display: flex; justify-content: space-between; align-items: flex-end; }
+  h1 { font-size: 34px; letter-spacing: 2px; margin: 6px 0 2px; font-weight: 700; }
+  .sub { color: var(--muted); font-size: 12.5px; }
+  .rule { border-top: 3px solid var(--ink); margin: 18px 0 22px; }
+  .user { text-align: right; font-size: 11.5px; }
+  .user img { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--ink); vertical-align: middle; }
+  .user a { color: var(--red); text-decoration: none; display: inline-block; margin-top: 4px; }
+  .box { border: 1px dashed var(--dash); background: var(--paper); padding: 20px 22px; margin-bottom: 16px; }
+  .box h3 { font-size: 12px; letter-spacing: 1.5px; margin-bottom: 12px; }
+  .box p { color: var(--muted); font-size: 11.5px; margin-bottom: 10px; }
+  select, input { font: inherit; font-size: 12px; background: var(--bg); color: var(--ink);
+    border: 1.5px solid var(--ink); padding: 9px 12px; width: 100%; }
+  .row { display: flex; gap: 10px; }
+  button { font: inherit; font-size: 11px; letter-spacing: 1px; font-weight: 600;
+    background: var(--ink); color: var(--bg); border: 1.5px solid var(--ink);
+    padding: 9px 20px; cursor: pointer; white-space: nowrap; transition: all .15s; }
+  button:hover { background: var(--red); border-color: var(--red); }
+  button.ghost { background: transparent; color: var(--ink); }
+  button.ghost:hover { background: var(--ink); color: var(--bg); }
+  pre { background: #16150f; color: #d8e4c8; font-size: 11.5px; padding: 14px 16px;
+    overflow-x: auto; margin-top: 12px; line-height: 1.7; }
+  .trow { display: flex; gap: 14px; align-items: baseline; padding: 9px 0;
+    border-bottom: 1px dashed var(--hair); font-size: 12px; }
+  .trow:last-child { border-bottom: none; }
+  .trow .tid { color: var(--red); font-weight: 700; }
+  .trow .repo { flex: 1; font-weight: 600; }
+  .trow .when { color: var(--faint); font-size: 10.5px; }
+  .jrow { display: flex; gap: 14px; align-items: center; padding: 8px 0;
+    border-bottom: 1px dashed var(--hair); font-size: 11.5px; }
+  .jrow:last-child { border-bottom: none; }
+  .jrow .jid { color: var(--faint); }
+  .jrow .route { flex: 1; font-weight: 600; }
+  .jrow .st-fixed { color: var(--ink); font-weight: 700; }
+  .jrow .st-draft_pr, .jrow .st-running { color: var(--red); font-weight: 700; }
+  .jrow .st-failed, .jrow .st-error { color: var(--red); }
+  .jrow a { color: var(--red); text-decoration: none; font-weight: 700; }
+  .empty { color: var(--faint); font-size: 11.5px; }
+  footer { margin-top: 28px; color: var(--faint); font-size: 11px; }
+</style>
+<body><div class="wrap">
+  <div class="headrow">
+    <div>
+      <div class="eyebrow">CONSOLE · CONNECT YOUR APPLICATIONS</div>
+      <h1>APP CONSOLE</h1>
+      <div class="sub">register an app → point it at CodeGhost → crashes open verified PRs on your repo</div>
+    </div>
+    <div class="user">
+      <div id="who">…</div>
+      <a href="/auth/logout">SIGN OUT</a>
+    </div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="box">
+    <h3>CONNECT AN APP</h3>
+    <p>Pick one of your GitHub repositories. CodeGhost generates a tenant id + shared secret — set them in the app that should be protected. Every crash it reports opens a PR on this repo with your token.</p>
+    <div class="row">
+      <select id="repoSel"><option>loading your repositories…</option></select>
+      <button onclick="connect()">CONNECT →</button>
+    </div>
+    <div id="cred" style="display:none">
+      <p style="margin-top:14px;color:var(--ink)">Tenant registered. Set these two variables in your application:</p>
+      <pre id="snippet"></pre>
+    </div>
+  </div>
+
+  <div class="box">
+    <h3>YOUR REGISTERED APPS</h3>
+    <div id="tenants"><div class="empty">None yet — connect an app above.</div></div>
+  </div>
+
+  <div class="box">
+    <h3>RECENT FIXES ON YOUR APPS</h3>
+    <div id="jobs"><div class="empty">No jobs yet.</div></div>
+  </div>
+
+  <footer>CODEGHOST · AGENT WRITES — HUMAN SHIPS</footer>
+</div>
+<script>
+const myTids = new Set();
+
+fetch('/api/me').then(r => {
+  if (r.status === 401) { location.href = '/login'; throw new Error('anon'); }
+  return r.json();
+}).then(me => {
+  document.getElementById('who').innerHTML =
+    `<img src="${me.avatar}" style="width:20px;height:20px;border-radius:50%;vertical-align:-5px;margin-right:6px">${me.login}`;
+  loadRepos(me.login);
+  loadTenants();
+  loadJobs();
+}).catch(() => {});
+
+async function loadRepos(login) {
+  const repos = await (await fetch('/api/my/repos')).json();
+  const mine = repos.filter(r => r.full_name.startsWith(login + '/'));
+  document.getElementById('repoSel').innerHTML = mine.length
+    ? mine.map(r => `<option value="${r.full_name}">${r.full_name}${r.private ? ' · private' : ''}</option>`).join('')
+    : '<option value="">no repositories found</option>';
+}
+
+async function connect() {
+  const repo = document.getElementById('repoSel').value;
+  if (!repo) return;
+  const t = await (await fetch('/api/tenants', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ repo }),
+  })).json();
+  document.getElementById('cred').style.display = '';
+  document.getElementById('snippet').textContent =
+    `CODEGHOST_URL=${location.origin}/crash?t=${t.tid}\nCODEGHOST_SHARED_SECRET=${t.secret}`;
+  loadTenants();
+}
+
+async function loadTenants() {
+  const ts = await (await fetch('/api/tenants')).json();
+  document.getElementById('tenants').innerHTML = ts.length
+    ? ts.map(t => { myTids.add(t.tid); return `<div class="trow"><span class="tid">${t.tid}</span><span class="repo">${t.repo}</span><span class="when">${new Date(t.created * 1000).toLocaleString()}</span></div>`; }).join('')
+    : '<div class="empty">None yet — connect an app above.</div>';
+}
+
+async function loadJobs() {
+  const jobs = await (await fetch('/jobs')).json();
+  const mine = jobs.filter(j => j.tenant && myTids.has(j.tenant)).slice(-6).reverse();
+  document.getElementById('jobs').innerHTML = mine.length
+    ? mine.map(j => `<div class="jrow"><span class="jid">${j.job_id}</span><span class="route">${j.route || ''}</span><span class="st-${j.status}">${j.status}</span>${j.pr_url ? `<a href="${j.pr_url}" target="_blank">PR →</a>` : ''}</div>`).join('')
+    : '<div class="empty">No jobs yet — trigger a crash in a connected app.</div>';
+}
+
+setInterval(loadJobs, 5000);
+</script>
+</body></html>

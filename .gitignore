@@ -14,6 +14,9 @@ node_modules/
 .env
 .env.local
 
+# OAuth tenant token store
+orchestrator/data/
+
 # Docker
 .dockerignore
 
