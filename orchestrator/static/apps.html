@@ -93,11 +93,14 @@
       <button onclick="connect()">CONNECT →</button>
     </div>
     <div id="cred" style="display:none">
-      <p style="margin-top:14px;color:var(--ink)">Tenant registered. Set these two variables in your application:</p>
-      <pre id="snippet"></pre>
-      <div class="row" style="margin-top:8px">
-        <button class="ghost" onclick="navigator.clipboard.writeText(snippetText(true)); this.textContent='COPIED ✓'; setTimeout(()=>this.textContent='COPY SNIPPET',1500)">COPY SNIPPET</button>
-        <button class="ghost" id="revealBtn" onclick="renderSnippet(!reveal)">REVEAL SECRET</button>
+      <p style="margin-top:14px;color:var(--ink)"><span id="credOk"></span><span style="color:var(--muted)"> — setup variables are collapsed; expand only when wiring an app.</span></p>
+      <button class="ghost" id="snippetToggle" onclick="toggleSnippet()">SHOW SETUP SNIPPET ▾</button>
+      <div id="snippetWrap" style="display:none">
+        <pre id="snippet" style="margin-top:12px"></pre>
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" onclick="navigator.clipboard.writeText(snippetText(true)); this.textContent='COPIED ✓'; setTimeout(()=>this.textContent='COPY SNIPPET',1500)">COPY SNIPPET</button>
+          <button class="ghost" id="revealBtn" onclick="renderSnippet(!reveal)">REVEAL SECRET</button>
+        </div>
       </div>
     </div>
   </div>
@@ -146,8 +149,20 @@ async function connect() {
   })).json();
   lastTenant = t;
   document.getElementById('cred').style.display = '';
-  renderSnippet(false);
+  document.getElementById('credOk').innerHTML =
+    `✓ Connected — <b>${t.repo}</b> · tenant <b>${t.tid}</b>`;
+  document.getElementById('snippetWrap').style.display = 'none';
+  document.getElementById('snippetToggle').textContent = 'SHOW SETUP SNIPPET ▾';
+  reveal = false;
   loadTenants();
+}
+
+function toggleSnippet() {
+  const w = document.getElementById('snippetWrap');
+  const open = w.style.display === 'none';
+  w.style.display = open ? '' : 'none';
+  document.getElementById('snippetToggle').textContent = open ? 'HIDE SETUP SNIPPET ▴' : 'SHOW SETUP SNIPPET ▾';
+  if (open) renderSnippet(false);
 }
 
 function snippetText(revealed) {
