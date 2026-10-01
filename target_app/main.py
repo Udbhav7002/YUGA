@@ -45,7 +45,8 @@ def calculate(req: CalcRequest):
     elif req.operation == "multiply":
         return {"result": req.a * req.b}
     elif req.operation == "divide":
-        # CRASH HAPPENS HERE WHEN b=0
+        if req.b == 0:
+            raise HTTPException(400, "Division by zero is not allowed")
         return {"result": req.a / req.b}
     else:
         raise HTTPException(400, "Unknown operation")
