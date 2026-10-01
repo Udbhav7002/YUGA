@@ -23,6 +23,7 @@ from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -40,6 +41,14 @@ COOLDOWN = 300  # seconds before same crash is accepted again
 app = FastAPI(title="CodeGhost Orchestrator")
 sandbox = Sandbox()
 
+# Victim-app front ends poll job status cross-origin (e.g. :8003 → :8004)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Serve live dashboard explicitly to avoid mount 404 issues
 from fastapi.responses import HTMLResponse
 
@@ -50,6 +59,15 @@ def serve_dashboard():
     if static_file.exists():
         return static_file.read_text()
     return "Dashboard HTML not found!"
+
+
+@app.get("/mission", response_class=HTMLResponse)
+@app.get("/mission/", response_class=HTMLResponse)
+def serve_mission():
+    static_file = Path(__file__).parent / "static" / "mission.html"
+    if static_file.exists():
+        return static_file.read_text()
+    return "Mission Control HTML not found!"
 
 # ── State ───────────────────────────────────────────────────────────
 JOBS: dict[str, dict] = {}
