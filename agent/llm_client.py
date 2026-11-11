@@ -18,10 +18,16 @@ import re
 from google import genai
 from google.genai import types
 
-client = genai.Client(
-    api_key=os.environ.get("GEMINI_API_KEY", ""),
-    http_options=types.HttpOptions(timeout=60_000),
-)
+try:
+    client = genai.Client(
+        api_key=os.environ.get("GEMINI_API_KEY", ""),
+        http_options=types.HttpOptions(timeout=60_000),
+    )
+except ValueError:
+    # No GEMINI_API_KEY configured: let the module import so the orchestrator
+    # can still boot (health, dashboard, status endpoints) and fail with a
+    # clear error on the first LLM call instead of a cryptic import crash.
+    client = None
 MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 # Demo-day order: put the model with live free-tier quota first —
 # dead models cost 2×5s retries each before the chain moves on.
@@ -44,6 +50,8 @@ def _call(prompt: str, system: str, max_tokens: int, thinking: int = 0) -> str:
     google-genai SDK's ThinkingConfig has no budget field, so it is a
     no-op — models use their default dynamic thinking."""
     import time
+    if client is None:
+        raise RuntimeError("GEMINI_API_KEY is not set — LLM calls unavailable")
     last_err = None
     for model in MODEL_FALLBACKS:
         for attempt in range(3):

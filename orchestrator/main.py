@@ -14,7 +14,6 @@ Design decisions (from GLM + DeepSeek + Kimi merged review):
 
 import hashlib
 import hmac
-import json
 import os
 import re
 import time
@@ -25,7 +24,6 @@ from pathlib import Path, PurePosixPath
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from orchestrator.sandbox import Sandbox
@@ -41,7 +39,6 @@ COOLDOWN = 300  # seconds before same crash is accepted again
 
 # ── App ─────────────────────────────────────────────────────────────
 app = FastAPI(title="CodeGhost Orchestrator")
-sandbox = Sandbox()
 
 # Victim-app front ends poll job status cross-origin (e.g. :8003 → :8004)
 app.add_middleware(
@@ -435,6 +432,9 @@ def run_pipeline(job_id: str, report: CrashReport, rel: str, tenant: dict | None
 
     try:
         deadline = time.monotonic() + DEADLINE
+        # Lazy Docker client: importing this module must not require a daemon
+        # (a dead socket surfaces as a per-job error, not a crashed app).
+        sandbox = Sandbox()
 
         # ── Step 1: Read source ─────────────────────────────────
         log("reading_source")
