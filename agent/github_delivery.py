@@ -87,11 +87,10 @@ def open_pull_request(
 
         # ── 1. Single rolling branch: create once, reuse forever ──
         try:
-            ref = repo.get_git_ref(f"heads/{BRANCH}")
+            repo.get_git_ref(f"heads/{BRANCH}")  # exists — reuse it
         except Exception:
             base_ref = repo.get_git_ref(f"heads/{base}")
             repo.create_git_ref(f"refs/heads/{BRANCH}", base_ref.object.sha)
-            ref = repo.get_git_ref(f"heads/{BRANCH}")
 
         # ── 2. Commit the fix — message maps it to the crash ──
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
