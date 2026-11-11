@@ -1,8 +1,9 @@
-# CODEGHOST
+# YUGA · CodeGhost
 
 **Production crash in → verified fix + pull request out.**
 
-CodeGhost is an autonomous crash-response pipeline. When a service throws an
+YUGA is the platform; **CodeGhost** is its autonomous crash-response pipeline.
+When a service throws an
 unhandled exception, a lightweight interceptor captures the crash, signs it,
 and ships it to the orchestrator — which generates a reproduction test,
 **proves the bug red** in an isolated Docker sandbox, generates a minimal
@@ -37,19 +38,9 @@ human to merge.
                                        verified · or · honest draft
 ```
 
-## The pipeline
+## Features
 
-| # | Stage | What happens |
-|---|---|---|
-| 1 | **Crash intercepted** | Middleware catches the 500, redacts secrets, signs the report (HMAC-SHA256 over raw bytes), fires it off — the user still gets their 500 |
-| 2 | **Reading source** | Repository read into memory — no bind mounts, no host-path bugs |
-| 3 | **Test generated** | Gemini writes a single pytest that reproduces the crash |
-| 4 | **Sandbox — red run** | Test must **fail** on the buggy code; a test that can't fail disqualifies itself |
-| 5 | **Fix generated** | Gemini patches the file; static blocklist scan first |
-| 6 | **Sandbox — green run** | Identical container, patched code, same test — must **pass** |
-| 7 | **Pull request** | Fix + regression test committed; raw red/green evidence and per-stage telemetry in the body |
-
-## Why judges (and engineers) should believe it
+Why judges (and engineers) should believe it:
 
 - **Red before green.** A fix is never evaluated against a test that cannot
   fail. If the AI's test is broken, the pipeline regenerates it — or stops.
@@ -66,6 +57,18 @@ human to merge.
   **draft** labeled *UNVERIFIED — needs human review*. CodeGhost refuses
   to fake success.
 - **Human in the loop.** Verified or not, merging is one click — a person's.
+
+## The pipeline
+
+| # | Stage | What happens |
+|---|---|---|
+| 1 | **Crash intercepted** | Middleware catches the 500, redacts secrets, signs the report (HMAC-SHA256 over raw bytes), fires it off — the user still gets their 500 |
+| 2 | **Reading source** | Repository read into memory — no bind mounts, no host-path bugs |
+| 3 | **Test generated** | Gemini writes a single pytest that reproduces the crash |
+| 4 | **Sandbox — red run** | Test must **fail** on the buggy code; a test that can't fail disqualifies itself |
+| 5 | **Fix generated** | Gemini patches the file; static blocklist scan first |
+| 6 | **Sandbox — green run** | Identical container, patched code, same test — must **pass** |
+| 7 | **Pull request** | Fix + regression test committed; raw red/green evidence and per-stage telemetry in the body |
 
 ## Sign in & connect your app
 
@@ -101,7 +104,7 @@ sandbox_image/    pre-warmed pytest container — no network needed at runtime
 tools/            operational scripts
 ```
 
-## Running it
+## Quickstart
 
 ```bash
 cp .env.example .env          # add GEMINI_API_KEY, GITHUB_TOKEN, GITHUB_REPO
@@ -115,6 +118,8 @@ pip install -r requirements.txt
 uvicorn orchestrator.main:app --port 8002   # dashboard at /dash
 uvicorn target_app.main:app --port 8001
 ```
+
+## Usage
 
 Trigger the rehearsed crash:
 
@@ -132,6 +137,10 @@ evidence in the pull request it opens.
 See `.env.example`. Key variables: `GEMINI_API_KEY`, `GITHUB_TOKEN`,
 `GITHUB_REPO`, `CODEGHOST_SHARED_SECRET`, `SANDBOX_IMAGE`,
 `MAX_FIX_ATTEMPTS`, `PIPELINE_DEADLINE`.
+
+## License
+
+Released under the [MIT License](LICENSE).
 
 ---
 *Built by Team YUGA. The crash is the demo — the verified pull request is the product.*
