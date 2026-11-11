@@ -1,5 +1,7 @@
 # YUGA · CodeGhost
 
+[![CI](https://github.com/Udbhav7002/YUGA/actions/workflows/ci.yml/badge.svg?style=flat)](https://github.com/Udbhav7002/YUGA/actions/workflows/ci.yml)
+
 YUGA is an autonomous crash-response pipeline. When a connected service
 throws an unhandled exception, a middleware interceptor captures the crash,
 scrubs secrets, signs the report, and forwards it to the orchestrator. The

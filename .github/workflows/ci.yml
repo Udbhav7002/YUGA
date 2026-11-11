@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest ruff
+
+      # Runs the pure-helper unit suite (tests/) plus the orchestrator
+      # smoke client (test_orchestrator.py, which degrades to a no-op
+      # without a live server). The full e2e path additionally needs a
+      # Docker daemon, GEMINI_API_KEY and GITHUB_TOKEN, so it stays a
+      # local / self-hosted exercise (orchestrator/smoke.py, e2e_test.py).
+      - name: Run tests
+        run: python -m pytest test_orchestrator.py tests/ -v
+
+      - name: Lint (real errors only)
+        run: ruff check --select F,E9 .
